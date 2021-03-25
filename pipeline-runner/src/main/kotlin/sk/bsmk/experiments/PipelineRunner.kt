@@ -40,7 +40,7 @@ fun main() = runBlocking {
 
 @ExperimentalTime
 fun tickingSource(delay: Duration = Duration.ZERO, period: Duration = Duration.ZERO, count: Int = 10) =
-    object : Source<Int> {
+    object : PipelineSource<Int> {
         override val name: String = "Ticking Source"
         override val flow: Flow<Int> = flow {
             delay(delay)
@@ -51,7 +51,7 @@ fun tickingSource(delay: Duration = Duration.ZERO, period: Duration = Duration.Z
         }
     }
 
-val messageAppender = object : Transformation<Int, String, String> {
+val messageAppender = object : PipelineTransformation<Int, String, String> {
     override val name: String = "Message Appender"
 
     override suspend fun transform(input: Int): TransformationResult<Int, String, String> {
@@ -63,7 +63,7 @@ val messageAppender = object : Transformation<Int, String, String> {
     }
 }
 
-class Peek<T>(private val peek: (T) -> Unit) : Transformation<T, T, Unit>, Sink<T, Nothing> {
+class Peek<T>(private val peek: (T) -> Unit) : PipelineTransformation<T, T, Unit>, PipelineSink<T, Nothing> {
     override val name: String = "Peek"
 
     override suspend fun transform(input: T): TransformationResult<T, T, Unit> {

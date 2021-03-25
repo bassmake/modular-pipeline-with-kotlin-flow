@@ -1,20 +1,6 @@
 package sk.bsmk.experiments
 
-import kotlinx.coroutines.flow.Flow
-
-interface Source<Output> {
-    val name: String
-
-    val flow: Flow<Output>
-}
-
-interface Sink<Input, Error> {
-    val name: String
-
-    suspend fun collect(input: Input)
-}
-
-interface Transformation<Input, Output, Failure> {
+interface PipelineTransformation<Input, Output, Failure> {
     val name: String
 
     suspend fun transform(input: Input): TransformationResult<Input, Output, Failure>
