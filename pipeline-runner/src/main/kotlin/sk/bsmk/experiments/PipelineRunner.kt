@@ -13,10 +13,10 @@ fun main() = runBlocking {
 
     val log = KotlinLogging.logger { }
 
-    val logSuccess = Peek<TransformationSuccess<Any, Any, Any>> {
+    val logSuccess = Peek<TransformSuccess<Any, Any, Any>> {
         log.info { "Successful output: ${it.output}" }
     }
-    val logError = Peek<TransformationFailure<Any, Any, Any>> {
+    val logError = Peek<TransformFailure<Any, Any, Any>> {
         log.error { "Something went wrong with ${it.input}: ${it.failure}" }
     }
     log.info { "I will run some pipeline." }
@@ -24,14 +24,18 @@ fun main() = runBlocking {
     val source = tickingSource()
 
     val transformed = source.flow.map { messageAppender.transform(it) }
-    val successes = transformed.mapNotNull { when(it) {
-        is TransformationSuccess -> it
-        is TransformationFailure -> null
-    }}
-    val failures = transformed.mapNotNull { when(it) {
-        is TransformationSuccess -> null
-        is TransformationFailure -> it
-    }}
+    val successes = transformed.mapNotNull {
+        when (it) {
+            is TransformSuccess -> it
+            is TransformFailure -> null
+        }
+    }
+    val failures = transformed.mapNotNull {
+        when (it) {
+            is TransformSuccess -> null
+            is TransformFailure -> it
+        }
+    }
 
     successes.collect { logSuccess.collect(it) }
     failures.collect { logError.collect(it) }
@@ -54,11 +58,11 @@ fun tickingSource(delay: Duration = Duration.ZERO, period: Duration = Duration.Z
 val messageAppender = object : PipelineTransformation<Int, String, String> {
     override val name: String = "Message Appender"
 
-    override suspend fun transform(input: Int): TransformationResult<Int, String, String> {
+    override suspend fun transform(input: Int): TransformResult<Int, String, String> {
         return if (input % 2 == 0) {
-            TransformationSuccess("Message $input")
+            TransformSuccess("Message $input")
         } else {
-            TransformationFailure(input,"Number is odd")
+            TransformFailure(input, "Number is odd")
         }
     }
 }
@@ -66,10 +70,13 @@ val messageAppender = object : PipelineTransformation<Int, String, String> {
 class Peek<T>(private val peek: (T) -> Unit) : PipelineTransformation<T, T, Unit>, PipelineSink<T, Nothing> {
     override val name: String = "Peek"
 
-    override suspend fun transform(input: T): TransformationResult<T, T, Unit> {
+    override suspend fun transform(input: T): TransformResult<T, T, Unit> {
         peek(input)
-        return TransformationSuccess(input)
+        return TransformSuccess(input)
     }
 
-    override suspend fun collect(input: T) = peek(input)
+    override suspend fun collect(input: T): CollectResult<Nothing> {
+        peek(input)
+        return CollectSuccess()
+    }
 }
