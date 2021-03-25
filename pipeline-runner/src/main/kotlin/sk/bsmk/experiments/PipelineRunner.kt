@@ -66,6 +66,6 @@ class Peek<T>(private val peek: (T) -> Unit) : PipelineTransformation<T, T, Unit
 
     override suspend fun drain(input: T): DrainResult<T, Nothing> {
         peek(input)
-        return DrainSuccess()
+        return DrainSuccess
     }
 }
