@@ -17,10 +17,12 @@ interface Sink<Input, Error> {
 interface Transformation<Input, Output, Failure> {
     val name: String
 
-    suspend fun transform(input: Input): TransformationResult<Output, Failure>
+    suspend fun transform(input: Input): TransformationResult<Input, Output, Failure>
 }
 
-sealed class TransformationResult<out Output, out Failure>(val isSuccess: Boolean)
-data class TransformationSuccess<out Output, out Failure>(val output: Output) : TransformationResult<Output, Failure>(true)
-data class TransformationFailure<out Output, out Failure>(val failure: Failure) :
-    TransformationResult<Output, Failure>(false)
+sealed class TransformationResult<out Input, out Output, out Failure>
+data class TransformationSuccess<out Input, out Output, out Failure>(val output: Output) :
+    TransformationResult<Input, Output, Failure>()
+
+data class TransformationFailure<out Input, out Output, out Failure>(val input: Input, val failure: Failure) :
+    TransformationResult<Input, Output, Failure>()
