@@ -1,11 +1,11 @@
 package sk.bsmk.experiments
 
-interface PipelineSink<in Input, out Failure> {
+interface PipelineSink<Input, out Failure> {
     val name: String
 
-    suspend fun collect(input: Input): CollectResult<Failure>
+    suspend fun drain(input: Input): DrainResult<Input, Failure>
 }
 
-sealed class CollectResult<out Failure>
-class CollectSuccess<out Failure>: CollectResult<Failure>()
-data class CollectFailure<out Failure>(val failure: Failure): CollectResult<Failure>()
+sealed class DrainResult<out Input, out Failure>
+class DrainSuccess<Input, Failure>: DrainResult<Input, Failure>()
+data class DrainFailure<Input, Failure>(val input: Input, val failure: Failure): DrainResult<Input, Failure>()

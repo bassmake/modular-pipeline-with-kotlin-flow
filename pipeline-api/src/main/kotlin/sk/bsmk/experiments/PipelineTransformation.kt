@@ -1,6 +1,6 @@
 package sk.bsmk.experiments
 
-interface PipelineTransformation<Input, Output, Failure> {
+interface PipelineTransformation<Input, out Output, out Failure> {
     val name: String
 
     suspend fun transform(input: Input): TransformResult<Input, Output, Failure>

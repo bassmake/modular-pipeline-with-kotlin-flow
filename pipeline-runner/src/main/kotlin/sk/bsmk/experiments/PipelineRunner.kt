@@ -13,32 +13,21 @@ fun main() = runBlocking {
 
     val log = KotlinLogging.logger { }
 
-    val logSuccess = Peek<TransformSuccess<Any, Any, Any>> {
-        log.info { "Successful output: ${it.output}" }
+    val logSuccess: PipelineSink<String, Nothing> = Peek {
+        log.info { "Successful output: $it" }
     }
-    val logError = Peek<TransformFailure<Any, Any, Any>> {
-        log.error { "Something went wrong with ${it.input}: ${it.failure}" }
-    }
-    log.info { "I will run some pipeline." }
-
-    val source = tickingSource()
-
-    val transformed = source.flow.map { messageAppender.transform(it) }
-    val successes = transformed.mapNotNull {
-        when (it) {
-            is TransformSuccess -> it
-            is TransformFailure -> null
-        }
-    }
-    val failures = transformed.mapNotNull {
-        when (it) {
-            is TransformSuccess -> null
-            is TransformFailure -> it
-        }
+    val logFailure = Peek<String> {
+        log.error { "Something went wrong: $it" }
     }
 
-    successes.collect { logSuccess.collect(it) }
-    failures.collect { logError.collect(it) }
+    val pipeline = Pipeline(
+        source = tickingSource(),
+        transformation = messageAppender,
+        sink = logSuccess,
+        failureSink = logFailure
+    )
+
+    pipeline.run()
 
 }
 
@@ -75,8 +64,8 @@ class Peek<T>(private val peek: (T) -> Unit) : PipelineTransformation<T, T, Unit
         return TransformSuccess(input)
     }
 
-    override suspend fun collect(input: T): CollectResult<Nothing> {
+    override suspend fun drain(input: T): DrainResult<T, Nothing> {
         peek(input)
-        return CollectSuccess()
+        return DrainSuccess()
     }
 }

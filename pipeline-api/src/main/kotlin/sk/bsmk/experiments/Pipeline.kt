@@ -1,5 +1,6 @@
 package sk.bsmk.experiments
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
@@ -31,23 +32,19 @@ data class Pipeline<Input, Output, TransformFailure>(
             }
         }
 
-        transformFailures.map { failureSink.collect(it.failure) }
-            .mapNotNull {
-                when (it) {
-                    is CollectSuccess -> null
-                    is CollectFailure -> it
-                }
-            }
-            .collect { log.error { "Unable to store failure: $it" } }
+        collect(transformFailures.map { failureSink.drain(it.failure) })
+        collect(transformSuccesses.map { sink.drain(it.output) })
 
-        transformSuccesses
-            .map { sink.collect(it.output) }
+    }
+
+    private suspend fun <T> collect(results: Flow<DrainResult<T, Any>>) {
+        results
             .mapNotNull {
                 when (it) {
-                    is CollectSuccess -> null
-                    is CollectFailure -> it
+                    is DrainSuccess -> null
+                    is DrainFailure -> it
                 }
             }
-            .collect { log.error { "Unable to store success: $it" } }
+            .collect { log.error { "Unable to store: ${it.input}: ${it.failure}" } }
     }
 }
