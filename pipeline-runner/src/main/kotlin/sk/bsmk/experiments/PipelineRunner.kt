@@ -1,44 +1,54 @@
 package sk.bsmk.experiments
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
 
+@ExperimentalTime
 fun main() = runBlocking {
 
     val log = KotlinLogging.logger { }
 
-    val pipeline = loggingPipeline
-    log.info { "I will run ${pipeline.name} pipeline." }
+    val logger = Logger<Int>()
+    log.info { "I will run some pipeline." }
 
-    val input: Flow<String> = flow {
-        for (i in 1..3) {
-            emit("Message $i")
-        }
-    }
+    val source = tickingSource()
 
-    input
-        .collect { pipeline.transform(it) }
+    source.flow
+        .collect { logger.collect(it) }
 
 }
 
-val loggingPipeline = object : Pipeline<String, Unit, Unit> {
+@ExperimentalTime
+fun tickingSource(delay: Duration = Duration.ZERO, period: Duration = Duration.ZERO, count: Int = 10): Source<Int> {
+    return object : Source<Int> {
+        override val name: String = "Ticking Source"
+        override val flow: Flow<Int> = flow {
+            delay(delay)
+            for (i in 1..count) {
+                emit(i)
+                delay(period)
+            }
+        }
+    }
+}
 
+class Logger<T> : Transformation<T, T, Unit>, Sink<T, Nothing> {
     private val log = KotlinLogging.logger { }
 
     override val name: String = "Logging"
 
-    override suspend fun transform(input: String) {
+    override suspend fun transform(input: T): TransformationResult<T, Unit> {
         log.info { "I am logging $input" }
+        return TransformationSuccess(input)
     }
 
-}
-
-interface Pipeline<Input, Output, Error> {
-    val name: String
-
-    suspend fun transform(input: Input): Output
-
+    override suspend fun collect(input: T) {
+        log.info { "I am logging $input" }
+    }
 }
