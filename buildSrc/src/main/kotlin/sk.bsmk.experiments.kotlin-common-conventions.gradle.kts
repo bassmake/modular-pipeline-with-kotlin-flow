@@ -8,29 +8,17 @@ repositories {
 
 dependencies {
     constraints {
-        // Define dependency versions as constraints
         implementation("org.apache.commons:commons-text:1.9")
-
-        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+        testImplementation("io.kotest:kotest-runner-junit5:4.4.3")
     }
 
-    // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-
-    // Use the Kotlin JDK 8 standard library.
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+    testImplementation("io.kotest:kotest-runner-junit5")
 
-    // Align versions of all Kotlin components
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom"))
-
-    // Use JUnit Jupiter API for testing.
-    testImplementation("org.junit.jupiter:junit-jupiter-api:5.6.2")
-
-    // Use JUnit Jupiter Engine for testing.
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
 
 tasks.test {
-    // Use junit platform for unit tests.
     useJUnitPlatform()
 }
