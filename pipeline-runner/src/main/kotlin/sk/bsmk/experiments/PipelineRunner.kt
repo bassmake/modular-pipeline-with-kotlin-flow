@@ -2,6 +2,8 @@ package sk.bsmk.experiments
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.produce
@@ -11,18 +13,14 @@ import kotlin.coroutines.coroutineContext
 @ExperimentalCoroutinesApi
 fun main() = runBlocking {
     val client = HttpClient(CIO)
-    val excusesFetcher = ProgrammingExcusesFetcher(client)
     val pipeline = Pipeline(
         source = produceNumbers(10),
         transform = { input: Int ->
-            if (input % 2 == 0) {
-                TransformSuccess(excusesFetcher.fetchExcuse())
-            } else {
-                TransformFailure("Number is odd")
-            }
+            println("Transforming $input -------------------------------------")
+            transform(client, input)
         },
-        processOutput = { output -> println("Successful output: $output") },
-        processFailure = { input, failure -> println("Something went wrong for $input: $failure") }
+        processOutput = { output -> println("Successful output: $output.") },
+        processFailure = { input, failure -> println("Something went wrong for $input: $failure.") }
     )
     pipeline.run()
 }
@@ -32,6 +30,19 @@ fun CoroutineScope.produceNumbers(until: Int = 10) = produce {
     var x = 1
     while (x <= until) send(x++)
     close()
+}
+
+suspend fun fetchExcuse(client: HttpClient): String {
+    val response: HttpResponse = client.get("http://programmingexcuses.com/")
+    return response.readText()
+}
+
+suspend fun transform(client: HttpClient, input: Int): TransformResult<String, String> {
+    return if (input % 2 == 0) {
+        TransformSuccess(fetchExcuse(client))
+    } else {
+        TransformFailure("Number $input is odd")
+    }
 }
 
 sealed class TransformResult<out Output, out Failure>
