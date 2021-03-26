@@ -1,71 +1,66 @@
 package sk.bsmk.experiments
 
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.produce
 import mu.KotlinLogging
-
-import kotlin.time.Duration
+import kotlin.coroutines.coroutineContext
 import kotlin.time.ExperimentalTime
 
+@ExperimentalCoroutinesApi
 @ExperimentalTime
 fun main() = runBlocking {
-
-    val log = KotlinLogging.logger { }
-
-    val logSuccess: PipelineSink<String, Nothing> = Peek {
-        log.info { "Successful output: $it" }
-    }
-    val logFailure = Peek<String> {
-        log.error { "Something went wrong: $it" }
-    }
-
     val pipeline = Pipeline(
-        source = tickingSource(),
-        transformation = messageAppender,
-        sink = logSuccess,
-        failureSink = logFailure
+        source = produceNumbers(10),
+        transform = { input: Int ->
+            if (input % 2 == 0) {
+                TransformSuccess("Message $input")
+            } else {
+                TransformFailure("Number is odd")
+            }
+        },
+        processOutput = { output -> println("Successful output: $output") },
+        processFailure = { input, failure -> println("Something went wrong for $input: $failure") }
     )
-
     pipeline.run()
-
 }
 
-@ExperimentalTime
-fun tickingSource(delay: Duration = Duration.ZERO, period: Duration = Duration.ZERO, count: Int = 10) =
-    object : PipelineSource<Int> {
-        override val name: String = "Ticking Source"
-        override val flow: Flow<Int> = flow {
-            delay(delay)
-            for (i in 1..count) {
-                emit(i)
-                delay(period)
+@ExperimentalCoroutinesApi
+fun CoroutineScope.produceNumbers(until: Int = 10) = produce {
+    var x = 1
+    while (x <= until) send(x++)
+    close()
+}
+
+sealed class TransformResult<out Output, out Failure>
+data class TransformSuccess<Output>(val output: Output) : TransformResult<Output, Nothing>()
+data class TransformFailure<Failure>(val failure: Failure) : TransformResult<Nothing, Failure>()
+
+data class Pipeline<Input, Output, Failure>(
+    val source: ReceiveChannel<Input>,
+    val transform: (Input) -> TransformResult<Output, Failure>,
+    val processOutput: (Output) -> Unit,
+    val processFailure: (Input, Failure) -> Unit
+) {
+
+    private val log = KotlinLogging.logger { }
+
+    suspend fun run() {
+        for (input in source) {
+            when (val result = transform(input)) {
+                is TransformSuccess -> {
+                    val output = result.output
+                    log.debug { "Transformation successful: $output" }
+                    processOutput(output)
+                }
+                is TransformFailure -> {
+                    val failure = result.failure
+                    log.debug { "Transformation failed: $failure" }
+                    processFailure(input, failure)
+                }
             }
         }
+        coroutineContext.cancelChildren()
     }
 
-val messageAppender = object : PipelineTransformation<Int, String, String> {
-    override val name: String = "Message Appender"
-
-    override suspend fun transform(input: Int): TransformResult<Int, String, String> {
-        return if (input % 2 == 0) {
-            TransformSuccess("Message $input")
-        } else {
-            TransformFailure(input, "Number is odd")
-        }
-    }
-}
-
-class Peek<T>(private val peek: (T) -> Unit) : PipelineTransformation<T, T, Unit>, PipelineSink<T, Nothing> {
-    override val name: String = "Peek"
-
-    override suspend fun transform(input: T): TransformResult<T, T, Unit> {
-        peek(input)
-        return TransformSuccess(input)
-    }
-
-    override suspend fun drain(input: T): DrainResult<T, Nothing> {
-        peek(input)
-        return DrainSuccess
-    }
 }
