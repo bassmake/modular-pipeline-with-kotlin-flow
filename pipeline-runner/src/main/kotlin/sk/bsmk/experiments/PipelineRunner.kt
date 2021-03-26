@@ -1,20 +1,22 @@
 package sk.bsmk.experiments
 
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.produce
 import mu.KotlinLogging
 import kotlin.coroutines.coroutineContext
-import kotlin.time.ExperimentalTime
 
 @ExperimentalCoroutinesApi
-@ExperimentalTime
 fun main() = runBlocking {
+    val client = HttpClient(CIO)
+    val excusesFetcher = ProgrammingExcusesFetcher(client)
     val pipeline = Pipeline(
         source = produceNumbers(10),
         transform = { input: Int ->
             if (input % 2 == 0) {
-                TransformSuccess("Message $input")
+                TransformSuccess(excusesFetcher.fetchExcuse())
             } else {
                 TransformFailure("Number is odd")
             }
@@ -38,9 +40,9 @@ data class TransformFailure<Failure>(val failure: Failure) : TransformResult<Not
 
 data class Pipeline<Input, Output, Failure>(
     val source: ReceiveChannel<Input>,
-    val transform: (Input) -> TransformResult<Output, Failure>,
-    val processOutput: (Output) -> Unit,
-    val processFailure: (Input, Failure) -> Unit
+    val transform: suspend (Input) -> TransformResult<Output, Failure>,
+    val processOutput: suspend (Output) -> Unit,
+    val processFailure: suspend (Input, Failure) -> Unit
 ) {
 
     private val log = KotlinLogging.logger { }
